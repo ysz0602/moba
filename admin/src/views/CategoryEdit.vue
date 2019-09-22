@@ -37,12 +37,12 @@ export default {
     }
   },
   created() {
-    this.fetch()
+    this.id && this.fetch()
     this.fetchParents()
   },
   methods: {
     async save() {
-      const res = await this.id ? this.$http.put(`/categories/${this.id}`, this.model) : this.$http.post('/categories', this.model)
+      await this.id ? this.$http.put(`/rest/categories/${this.id}`, this.model) : this.$http.post('/rest/categories', this.model)
       this.$router.push('/categories/list')
       this.$message({
         type: 'success',
@@ -50,11 +50,11 @@ export default {
       })
     },
     async fetch() {
-      const res = await this.$http.get(`/categories/${this.id}`)
+      const res = await this.$http.get(`/rest/categories/${this.id}`)
       this.model = res.data
     },
     async fetchParents() {
-      const res = await this.$http.get(`/categories`)
+      const res = await this.$http.get(`/rest/categories`)
       this.parents = res.data
     }
   }

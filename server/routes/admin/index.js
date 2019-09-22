@@ -1,29 +1,84 @@
 module.exports = app => {
     const express = require('express')
-    const router = express.Router()
-    const Category = require('../../models/Category')
-    router.post('/categories', async (req, res) => {
-        const model = await Category.create(req.body)
+    const jwt = require('jsonwebtoken')
+    const assert = require('http-assert')
+    const AdminUser = require('../../models/AdminUser')
+    const router = express.Router({
+        mergeParams: true
+    })
+    // 创建资源
+    router.post('/', async (req, res) => {
+        const model = await req.Model.create(req.body)
         res.send(model)
     })
-    router.put('/categories/:id', async (req, res) => {
-        const model = await Category.findByIdAndUpdate(req.params.id, req.body)
+    // 更新资源
+    router.put('/:id', async (req, res) => {
+        const model = await req.Model.findByIdAndUpdate(req.params.id, req.body)
         res.send(model)
     })
-    router.delete('/categories/:id', async (req, res) => {
-        const model = await Category.findByIdAndDelete(req.params.id, req.body)
+    // 删除资源
+    router.delete('/:id', async (req, res) => {
+        const model = await req.Model.findByIdAndDelete(req.params.id, req.body)
         res.send({
             success: true
         })
     })
-    router.get('/categories', async (req, res) => {
-        const items = await Category.find().populate('parent').limit(10)
+    // 资源列表
+    router.get('/', async (req, res) => {
+        const queryOptions = {}
+        if (req.Model.modelName === 'Category') {
+            queryOptions.populate = 'parent'
+        }
+        const items = await req.Model.find().setOptions(queryOptions).limit(100)
         res.send(items)
     })
-    router.get('/categories/:id', async (req, res) => {
-        const model = await Category.findById(req.params.id)
+    // 资源详情
+    router.get('/:id', async (req, res) => {
+        const model = await req.Model.findById(req.params.id)
         res.send(model)
     })
 
-    app.use('/admin/api', router)
+    const authMiddleware = require('../../middleware/auth')
+
+    const resourceMiddleware = require('../../middleware/resource')
+
+    app.use('/admin/api/rest/:resource', authMiddleware(), resourceMiddleware(), router)
+
+    const multer = require('multer')
+    const upload = multer({dest: __dirname + '/../../uploads'})
+    app.post('/admin/api/upload', authMiddleware(), upload.single('file'), async (req, res) => {
+        const file = req.file
+        file.url = `http://localhost:3000/uploads/${file.filename}`
+        res.send(file)
+    })
+
+    app.post('/admin/api/login', async (req, res) => {
+        const { username, password } = req.body
+        // 1. 根据用户名找用户
+        const user = await AdminUser.findOne({ username }).select('+password')
+        // assert(user, 422, '用户不存在')
+        
+        if (!user) {
+            return res.status(422).send({ message: '用户不存在'})
+        }
+        // 2.校验密码
+        const isValid = require('bcrypt').compareSync(password, user.password)
+        if (!isValid) {
+            return res.status(422).send({
+                message: '密码错误'
+            })
+        }
+        // 3.返回token
+        const token = jwt.sign({ id: user._id }, app.get('secret'), {
+            expiresIn: 60*60*1  // 1小时过期
+        })
+        return res.send({ token })
+    })
+    // 错误处理
+    app.use(async (err, req, res, next) => {
+        console.log(err)
+        res.status(err.statusCode).send({
+            message: err.message
+        })
+    })
 }
