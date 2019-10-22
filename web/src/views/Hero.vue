@@ -25,7 +25,7 @@
             <span class="badge bg-dark">{{ model.scores.survive }}</span>
           </div>
           <router-link class="text-gray fs-sm" to="/" tag="span">
-            皮肤：2 &gt;
+            皮肤: 2 &gt;
           </router-link>
         </div>
       </div>
